@@ -6,8 +6,8 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 # alg specific imports
-from softQnetwork import SoftQNetwork
-from valuenetwork import ValueNetwork
+from .softQnetwork import SoftQNetwork
+from .valuenetwork import ValueNetwork
 
 class SoftActorCritic(object):
 
@@ -21,9 +21,9 @@ class SoftActorCritic(object):
         # set up the networks
         self.value_net        = ValueNetwork(state_dim, hidden_dim)
         self.target_value_net = ValueNetwork(state_dim, hidden_dim)
+        self.policy_net       = policy
 
         self.soft_q_net = SoftQNetwork(state_dim, action_dim, hidden_dim)
-        self.policy_net = policy
 
         # copy the target params over
         for target_param, param in zip(self.target_value_net.parameters(), self.value_net.parameters()):
@@ -40,6 +40,8 @@ class SoftActorCritic(object):
 
         # reference the replay buffer
         self.replay_buffer = replay_buffer
+
+        self.log = {'value_loss' :[], 'q_value_loss':[], 'policy_loss' :[]}
 
     def soft_q_update(self, batch_size,
                             gamma       = 0.99,
@@ -96,3 +98,7 @@ class SoftActorCritic(object):
             target_param.data.copy_(
                 target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
+
+        self.log['q_value_loss'].append(q_value_loss.item())
+        self.log['value_loss'].append(value_loss.item())
+        self.log['policy_loss'].append(policy_loss.item())

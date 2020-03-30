@@ -6,8 +6,8 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 # alg specific imports
-from softQnetwork import SoftQNetwork
-from valuenetwork import ValueNetwork
+from .softQnetwork import SoftQNetwork
+from .valuenetwork import ValueNetwork
 
 class SoftActorCritic(object):
 
@@ -21,9 +21,9 @@ class SoftActorCritic(object):
         # set up the networks
         self.value_net        = ValueNetwork(state_dim, hidden_dim)
         self.target_value_net = ValueNetwork(state_dim, hidden_dim)
+        self.policy_net       = policy
 
         self.soft_q_net = SoftQNetwork(state_dim, action_dim, hidden_dim)
-        self.policy_net = policy
 
         # copy the target params over
         for target_param, param in zip(self.target_value_net.parameters(), self.value_net.parameters()):
