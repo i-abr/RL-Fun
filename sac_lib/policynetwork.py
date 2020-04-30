@@ -41,7 +41,7 @@ class PolicyNetwork(nn.Module):
         std = log_std.exp()
 
         normal = Normal(mean, std)
-        z = normal.rsample()
+        z = normal.sample()
         action = torch.tanh(z)
 
         log_prob = normal.log_prob(z) - torch.log(1 - action.pow(2) + epsilon)

@@ -12,12 +12,7 @@ class SoftQNetwork(nn.Module):
             nn.Linear(hidden_size, hidden_size), nn.ReLU(),
             nn.Linear(hidden_size, 1)
         )
-        self.q2 = nn.Sequential(
-            nn.Linear(num_inputs + num_actions, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, 1)
-        )
 
     def forward(self, state, action):
         state_action = torch.cat([state, action], 1)
-        return self.q1(state_action), self.q2(state_action)
+        return self.q1(state_action)
