@@ -13,8 +13,8 @@ class SoftActorCritic(object):
 
     def __init__(self, policy, state_dim, action_dim, replay_buffer,
                             hidden_dim  = 256,
-                            soft_q_lr   = 3e-4,
-                            policy_lr   = 3e-4,
+                            soft_q_lr   = 3e-3,
+                            policy_lr   = 3e-3,
                             device      = 'cpu'
                         ):
         self.device = device
@@ -25,7 +25,7 @@ class SoftActorCritic(object):
 
         # ent coeff
         self.target_entropy = -action_dim
-        self.log_ent_coef = torch.FloatTensor(np.array([.0])).to(device)
+        self.log_ent_coef = torch.FloatTensor(np.log(np.array([.1]))).to(device)
         self.log_ent_coef.requires_grad = True
 
         # copy the target params over
@@ -38,7 +38,7 @@ class SoftActorCritic(object):
         # set the optimizers
         self.soft_q_optimizer = optim.Adam(self.soft_q_net.parameters(), lr=soft_q_lr)
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=policy_lr)
-        self.ent_coef_optimizer = optim.Adam([self.log_ent_coef], lr=3e-4)
+        self.ent_coef_optimizer = optim.Adam([self.log_ent_coef], lr=3e-3)
 
         # reference the replay buffer
         self.replay_buffer = replay_buffer
@@ -46,11 +46,7 @@ class SoftActorCritic(object):
         self.log = {'entropy_loss' :[], 'q_value_loss':[], 'policy_loss' :[]}
 
     def soft_q_update(self, batch_size,
-                            ent_coef    = 0.05,
                             gamma       = 0.99,
-                            mean_lambda = 1e-3,
-                            std_lambda  = 1e-3,
-                            z_lambda    = 0.0,
                             soft_tau    = 0.01
                       ):
         state, action, reward, next_state, done = self.replay_buffer.sample(batch_size)
@@ -64,19 +60,22 @@ class SoftActorCritic(object):
         ent_coef = torch.exp(self.log_ent_coef.detach())
         new_action, log_prob, z, mean, log_std = self.policy_net.evaluate(next_state)
 
-        target_q_value = self.target_soft_q_net(next_state, new_action)
-        target_value = reward + (1 - done) * gamma * (target_q_value - ent_coef * log_prob)
+        target_q1_value, target_q2_value = self.target_soft_q_net(next_state, new_action)
+        target_value = reward + (1 - done) * gamma * (torch.min(target_q2_value, target_q2_value) - ent_coef * log_prob)
 
-        expected_q_value = self.soft_q_net(state, action)
+        expected_q1_value, expected_q2_value = self.soft_q_net(state, action)
 
-        q_value_loss = self.soft_q_criterion(expected_q_value, target_value.detach())
+        q_value_loss = self.soft_q_criterion(expected_q1_value, target_value.detach()) \
+                            + self.soft_q_criterion(expected_q2_value, target_value.detach())
 
         self.soft_q_optimizer.zero_grad()
         q_value_loss.backward()
         self.soft_q_optimizer.step()
 
         new_action, log_prob, z, mean, log_std = self.policy_net.evaluate(state)
-        expected_new_q_value = self.soft_q_net(state, new_action)
+        expected_new_q1_value, expected_new_q2_value = self.soft_q_net(state, new_action)
+
+        expected_new_q_value = torch.min(expected_new_q1_value, expected_new_q2_value)
 
         policy_loss = (ent_coef * log_prob - expected_new_q_value).mean()
 
