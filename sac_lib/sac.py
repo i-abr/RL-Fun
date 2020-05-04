@@ -20,10 +20,10 @@ class SoftActorCritic(object):
                  soft_q_lr=3e-3,
                  policy_lr=3e-3,
                  device=torch.device(
-                     "cuda:1" if torch.cuda.is_available() else "cpu")):
+                     "cuda:0" if torch.cuda.is_available() else "cpu")):
         self.device = device
         # set up the networks
-        self.policy_net = policy.to(device)
+        self.policy_net = policy
         self.soft_q_net = SoftQNetwork(state_dim, action_dim,
                                        hidden_dim).to(device)
         self.target_soft_q_net = SoftQNetwork(state_dim, action_dim,
